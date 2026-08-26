@@ -6,6 +6,6 @@ class PredictionRequest(BaseModel):
 
 
 class DepthProfileRequest(BaseModel):
-    day_index: int
     latitude: float
     longitude: float
+    day_index: int = 0
