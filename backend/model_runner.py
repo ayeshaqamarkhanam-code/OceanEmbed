@@ -62,6 +62,8 @@ STD_Y = Y_TENSOR.std(
 def predict(day_index: int):
     """
     Run the trained OceanEmbed model for one dataset day.
+    Returns (mean, std) — std is real Monte Carlo dropout uncertainty,
+    in the same de-normalized temperature units as mean.
     """
 
     if not 0 <= day_index < len(X_DATA):
@@ -74,13 +76,15 @@ def predict(day_index: int):
     # Normalize exactly like training
     x = (x - MEAN_X) / STD_X
 
-    with torch.no_grad():
-        prediction = model(x.to(DEVICE))
+    mean_pred, std_pred = model.predict_with_uncertainty(x.to(DEVICE), n_passes=20)
 
-    # Convert prediction back to original temperature scale
-    prediction = prediction * STD_Y + MEAN_Y
+    # Convert back to original temperature scale.
+    # mean: de-normalize normally. std: only rescale (no mean shift —
+    # std of a shifted variable is unaffected by the shift, only the scale).
+    mean_pred = mean_pred * STD_Y + MEAN_Y
+    std_pred = std_pred * STD_Y
 
-    return prediction.squeeze(0).cpu().numpy()
+    return mean_pred.squeeze(0).cpu().numpy(), std_pred.squeeze(0).cpu().numpy()
 
 
 def get_depth_profile(
@@ -93,7 +97,7 @@ def get_depth_profile(
     0.25-degree grid point.
     """
 
-    prediction = predict(day_index)
+    mean_pred, std_pred = predict(day_index)
 
     lat_index = round((latitude - 5.0) / 0.25)
     lon_index = round((longitude - 45.0) / 0.25)
@@ -108,13 +112,19 @@ def get_depth_profile(
             "Longitude is outside the North Indian Ocean grid."
         )
 
-    temperatures = prediction[:, lat_index, lon_index]
+    if X_DATA[day_index, 0, lat_index, lon_index] == 0:
+        raise ValueError(
+            "Selected point is on land in this dataset's grid. Pick an ocean point."
+        )
+
+    temperatures = mean_pred[:, lat_index, lon_index]
+    uncertainties = std_pred[:, lat_index, lon_index]
 
     depth_profile = [
         {
             "depth": depth,
             "temp": float(temperatures[i]),
-            "unc": 0.0
+            "unc": float(uncertainties[i])
         }
         for i, depth in enumerate(DEPTHS)
     ]

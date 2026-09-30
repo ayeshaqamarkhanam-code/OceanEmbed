@@ -1,5 +1,8 @@
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from schemas import PredictionRequest, DepthProfileRequest
 from model_runner import predict, get_depth_profile
 
@@ -13,18 +16,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/")
-def root():
-    return {"message": "OceanEmbed backend is running"}
-
 
 @app.post("/api/v1/predict")
 def prediction(request: PredictionRequest):
-    result = predict(request.day_index)
+    mean, std = predict(request.day_index)
 
     return {
         "day_index": request.day_index,
-        "shape": list(result.shape),
+        "shape": list(mean.shape),
         "message": "Prediction generated successfully"
     }
 
@@ -36,3 +35,11 @@ def depth_profile(request: DepthProfileRequest):
         request.latitude,
         request.longitude
     )
+
+
+# Serve the frontend from the SAME server, same domain, so the deployed
+# app is one link instead of two. Must be mounted AFTER the /api/v1/*
+# routes above — StaticFiles with html=True catches "/" and everything
+# else not already matched by a route defined earlier in this file.
+FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

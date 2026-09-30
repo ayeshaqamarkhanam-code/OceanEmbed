@@ -190,7 +190,7 @@ async function refreshProfile(lat, lon) {
   selectedLon = lon;
 
   try {
-    const res = await fetch('http://127.0.0.1:8000/api/v1/depth-profile', {
+    const res = await fetch(`${OCEANEMBED_API_BASE}/api/v1/depth-profile`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

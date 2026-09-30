@@ -9,6 +9,12 @@ class OceanDataset(Dataset):
         self.x = torch.tensor(x_data, dtype=torch.float32)
         self.y = torch.tensor(y_data, dtype=torch.float32)
 
+        # Per-depth mask: True where this depth has real ocean data.
+        # Y==0 means EITHER land OR "no seafloor at this depth" in shallow
+        # coastal water — must be computed per depth, never one shared mask.
+        # Computed BEFORE normalization (raw 0 is the signal to check).
+        self.mask = (self.y != 0).float()
+
         # Store normalization values
         self.mean_x = mean_x
         self.std_x = std_x
@@ -23,7 +29,7 @@ class OceanDataset(Dataset):
         return len(self.x)
 
     def __getitem__(self, idx):
-        return self.x[idx], self.y[idx]
+        return self.x[idx], self.y[idx], self.mask[idx]
 
 
 def load_data(
@@ -154,9 +160,10 @@ if __name__ == "__main__":
     print("Number of validation batches:", len(val_loader))
 
     # Get one batch
-    x_batch, y_batch = next(iter(train_loader))
+    x_batch, y_batch, mask_batch = next(iter(train_loader))
 
     print("X batch shape:", x_batch.shape)
     print("Y batch shape:", y_batch.shape)
+    print("Mask batch shape:", mask_batch.shape)
 
     print("\nData Loader is working successfully!")
