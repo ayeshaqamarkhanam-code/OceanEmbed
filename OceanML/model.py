@@ -106,22 +106,41 @@ class OceanSubsurfaceAutoencoder(nn.Module):
         predictions = self.decoder(latent, out_hw=(x.shape[2], x.shape[3]))
         return predictions
 
-    def predict_with_uncertainty(self, x, n_passes=20):
+    def predict_with_uncertainty(self, x, n_passes=8):
         """
         Monte Carlo dropout uncertainty. Runs n_passes forward passes with
         dropout kept ON, returns (mean, std) across those passes.
         std is a real per-pixel, per-depth uncertainty — not a placeholder.
         Call this instead of forward() wherever the app needs an "unc" value.
+
+        Memory note: this used to torch.stack() all n_passes full output
+        tensors before averaging — on a memory-constrained host (e.g.
+        Render's free 512MB tier) that spike was enough to crash the
+        process mid-request (seen as a 502, not a normal error response,
+        since the process died instead of returning anything). Now keeps
+        a running sum and sum-of-squares instead, so peak memory is ~2
+        tensors regardless of n_passes, not n_passes tensors. n_passes
+        dropped from 20 to 8 as a second, independent safety margin —
+        still enough samples for a meaningful std estimate.
         """
         was_training = self.training
         self.train()  # keep dropout active even if caller is in eval mode
-        preds = []
+        total = None
+        total_sq = None
         with torch.no_grad():
             for _ in range(n_passes):
-                preds.append(self.forward(x))
-        preds = torch.stack(preds, dim=0)  # (n_passes, B, 15, H, W)
-        mean = preds.mean(dim=0)
-        std = preds.std(dim=0)
+                out = self.forward(x)
+                if total is None:
+                    total = out.clone()
+                    total_sq = out * out
+                else:
+                    total += out
+                    total_sq += out * out
+        mean = total / n_passes
+        # Var(X) = E[X^2] - E[X]^2, clamped at 0 for float rounding safety
+        var = (total_sq / n_passes) - (mean * mean)
+        var = var.clamp(min=0.0)
+        std = var.sqrt()
         if not was_training:
             self.eval()
         return mean, std
