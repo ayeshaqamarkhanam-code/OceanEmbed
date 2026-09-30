@@ -198,11 +198,9 @@
           <div class="var-code">Currents (U, V)</div>
           <div class="var-name">Surface ocean currents — east-west &amp; north-south speed</div>
         </div>
-        <div class="var-card">
-          <div class="var-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M3 8h10a3 3 0 100-3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M3 12h14a3 3 0 110 6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M3 16h7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" opacity="0.5"/></svg></div>
-          <div class="var-code">Winds (U, V)</div>
-          <div class="var-name">Surface winds — east-west &amp; north-south speed</div>
-        </div>
+        <!-- Winds card removed: this dataset has no wind data (confirmed
+             absent by the data owner — see project notes). Showing it as
+             an input was a factual claim the model can't back up. -->
       </div>
 
       <!-- ---- Map: single, full-width ---- -->
@@ -211,7 +209,7 @@
         <div class="panel-head">
           <div>
             <div class="title">Surface Observation &amp; Reconstruction Map</div>
-            <div class="desc" id="mapDesc">Latest satellite pass · updated 6m ago · validated against Gridded ARGO</div>
+            <div class="desc" id="mapDesc">Latest satellite pass · held-out evaluation against GLORYS reanalysis</div>
           </div>
           <button class="run-btn status-flash" id="runBtn" onclick="runInference()">
             <span class="spinner"></span>
@@ -220,7 +218,7 @@
         </div>
         <div class="panel-body">
           <div class="map-toolbar">
-            <input id="locationInput" class="location-input" placeholder="Search a location (e.g. Kochi, India or 12.4,78.1)" onkeydown="if(event.key==='Enter') searchLocation()">
+            <input id="locationInput" class="location-input" placeholder="Search a location (e.g. Chennai, India or 15,85)" onkeydown="if(event.key==='Enter') searchLocation()">
             <button class="small-btn" onclick="searchLocation()">Search location</button>
             <button class="small-btn" id="mapToggleBtn" onclick="toggleMapType()">Map view</button>
           </div>
@@ -242,7 +240,7 @@
           <div class="panel-head">
             <div>
               <div class="title">Reconstructed Depth Levels</div>
-              <div class="desc" id="tableDesc">Selected point · 12.4°N, 78.1°E</div>
+              <div class="desc" id="tableDesc">Selected point · 15.0°N, 85.0°E</div>
             </div>
           </div>
           <div class="panel-body">
@@ -271,11 +269,16 @@
       </div>
 
       <div id="modelsSection" class="section-anchor"></div>
+      <!-- Correlation/RMSE/Bias below were hardcoded placeholder numbers,
+           not computed by the model. Replaced with the real, honest,
+           masked held-out numbers from layer_r2.py — see project notes.
+           These are ranges across 15 depths, not one fixed value, because
+           accuracy genuinely varies by depth; reporting a single fake
+           number was hiding that. -->
       <div class="stat-strip">
-        <div class="metric-card"><div class="label">Correlation (r) vs ARGO</div><div class="value">0.94</div></div>
-        <div class="metric-card"><div class="label">RMSE</div><div class="value">0.82 <small>°C</small></div></div>
-        <div class="metric-card"><div class="label">Bias</div><div class="value">-0.11 <small>°C</small></div></div>
-        <div class="metric-card"><div class="label">Last Run</div><div class="value" id="lastRunValue" style="font-size:15px;">14:24 UTC</div></div>
+        <div class="metric-card"><div class="label">R² across depths (held-out, masked)</div><div class="value" style="font-size:20px;">0.69 – 0.88</div></div>
+        <div class="metric-card"><div class="label">Uncertainty</div><div class="value" style="font-size:15px;">Monte Carlo dropout, per depth</div></div>
+        <div class="metric-card"><div class="label">Last Run</div><div class="value" id="lastRunValue" style="font-size:15px;">Not yet run</div></div>
       </div>
 
       <!-- ---- Model / validation info ---- -->
@@ -289,19 +292,19 @@
         <div class="info-grid">
           <div class="info-item">
             <div class="info-label">Architecture</div>
-            <div class="info-value">Satellite-embedding autoencoder + attention-based reconstruction head</div>
+            <div class="info-value">Satellite-embedding convolutional autoencoder (stride-2 encoder/decoder) with a Monte Carlo dropout uncertainty head</div>
           </div>
           <div class="info-item">
             <div class="info-label">Training inputs</div>
-            <div class="info-value">SST · SSS · SSH/SLA · surface currents (U,V) · surface winds (U,V)</div>
+            <div class="info-value">SST · SSS · SSH/SLA · surface currents (U,V) — 5 real channels. This dataset has no surface wind data.</div>
           </div>
           <div class="info-item">
             <div class="info-label">Training target</div>
             <div class="info-value">GLORYS global ocean reanalysis, temperature at 15 standard depths</div>
           </div>
           <div class="info-item">
-            <div class="info-label">Independent validation</div>
-            <div class="info-value">Gridded ARGO (INCOIS Live Access Server)</div>
+            <div class="info-label">Validation</div>
+            <div class="info-value">Held-out samples from the same GLORYS dataset, masked per depth. Not yet validated against independent ARGO buoy data.</div>
           </div>
         </div>
       </div>

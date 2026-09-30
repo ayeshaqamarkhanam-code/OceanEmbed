@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from schemas import PredictionRequest, DepthProfileRequest
@@ -30,11 +30,17 @@ def prediction(request: PredictionRequest):
 
 @app.post("/api/v1/depth-profile")
 def depth_profile(request: DepthProfileRequest):
-    return get_depth_profile(
-        request.day_index,
-        request.latitude,
-        request.longitude
-    )
+    try:
+        return get_depth_profile(
+            request.day_index,
+            request.latitude,
+            request.longitude
+        )
+    except ValueError as e:
+        # get_depth_profile raises ValueError for land points / out-of-domain
+        # coordinates. Converted to a real HTTP error with a real message,
+        # instead of an unhandled 500 "Internal Server Error."
+        raise HTTPException(status_code=422, detail=str(e))
 
 
 # Serve the frontend from the SAME server, same domain, so the deployed

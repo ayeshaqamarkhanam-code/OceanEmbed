@@ -162,7 +162,7 @@ async function searchLocation(){
 }
 
 // ---------- Profile / result visualization ----------
-let selectedLat=12.4, selectedLon=78.1, DEPTH_DATA=[];
+let selectedLat=15.0, selectedLon=85.0, DEPTH_DATA=[];
 
 function tempToColor(t){
   const stops=[{t:5,c:[36,85,195]},{t:15,c:[32,184,200]},{t:22,c:[244,211,94]},{t:29,c:[238,108,77]}];
@@ -202,7 +202,11 @@ async function refreshProfile(lat, lon) {
       })
     });
 
-    if (!res.ok) throw new Error(`Backend error: ${res.status}`);
+    if (!res.ok) {
+      let detail = `Backend error: ${res.status}`;
+      try { const errBody = await res.json(); if (errBody.detail) detail = errBody.detail; } catch (_) {}
+      throw new Error(detail);
+    }
 
     const data = await res.json();
 
@@ -218,13 +222,17 @@ async function refreshProfile(lat, lon) {
 
   } catch (error) {
     console.error('Depth profile request failed:', error);
-    showToast('Unable to fetch ocean prediction.');
+    showToast(error.message && error.message !== 'Failed to fetch' ? error.message : 'Unable to fetch ocean prediction.');
   }
 }
 function runInference(){
   const btn=document.getElementById('runBtn'),label=document.getElementById('runBtnLabel'),pill=document.querySelector('.pill'); if(btn.classList.contains('loading'))return;
   btn.classList.add('loading');btn.disabled=true;label.textContent='Running…';if(pill)pill.innerHTML='<span class="dot"></span>Running inference…';
-  setTimeout(()=>{refreshProfile(selectedLat,selectedLon);btn.classList.remove('loading');btn.disabled=false;label.textContent='Run inference';if(pill)pill.innerHTML='<span class="dot"></span>Ready for inference';const now=new Date();document.getElementById('lastRunValue').textContent=`${String(now.getUTCHours()).padStart(2,'0')}:${String(now.getUTCMinutes()).padStart(2,'0')} UTC`;document.getElementById('mapDesc').textContent='Latest satellite pass · updated just now · validated against Gridded ARGO';showToast('Inference complete.');},1100);
+  refreshProfile(selectedLat,selectedLon).finally(()=>{
+    btn.classList.remove('loading');btn.disabled=false;label.textContent='Run inference';if(pill)pill.innerHTML='<span class="dot"></span>Ready for inference';
+    const now=new Date();document.getElementById('lastRunValue').textContent=`${String(now.getUTCHours()).padStart(2,'0')}:${String(now.getUTCMinutes()).padStart(2,'0')} UTC`;
+    document.getElementById('mapDesc').textContent='Latest satellite pass · held-out evaluation against GLORYS reanalysis';
+  });
 }
 function continueSSO(){
   const u=getUser();
